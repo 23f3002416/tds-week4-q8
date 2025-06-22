@@ -1,5 +1,4 @@
 name: Daily Commit
-
 on:
   schedule:
     # Runs at 05:30 UTC every day
@@ -9,6 +8,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout repository
