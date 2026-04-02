@@ -36,11 +36,24 @@ def calc_trading_cost(asset_cfg: dict, price: float, size: float) -> float:
 
 class Backtest:
     def __init__(self, asset_name: str, asset_cfg: dict,
-                 entry_df: pd.DataFrame, signals_df: pd.DataFrame):
+                 entry_df: pd.DataFrame, signals_df: pd.DataFrame,
+                 min_bars_for_ma_exit: int = 3,
+                 max_holding_bars: int = None,
+                 use_bb_band_exit: bool = False):
+        """
+        Args:
+            min_bars_for_ma_exit: Minimum bars held before MA cross exit activates.
+            max_holding_bars: Override config.MAX_HOLDING_BARS.
+            use_bb_band_exit: If True, exit longs when close < BB lower band of
+                              entry zone (opposite zone), instead of MA20 cross.
+        """
         self.asset_name = asset_name
         self.asset_cfg = asset_cfg
         self.entry_df = entry_df
         self.signals_df = signals_df
+        self.min_bars_for_ma_exit = min_bars_for_ma_exit
+        self.max_holding_bars = max_holding_bars or config.MAX_HOLDING_BARS
+        self.use_bb_band_exit = use_bb_band_exit
 
         self.capital = config.INITIAL_CAPITAL
         self.equity = config.INITIAL_CAPITAL
@@ -135,19 +148,34 @@ class Backtest:
             self._close_position(pos.stop_loss, date, "stop_loss")
             return
 
-        # Exit 2: BB middle band exit (mean reversion target)
+        # Exit 2a: BB opposite band exit (for intraday — ride to opposite zone)
+        if self.use_bb_band_exit:
+            if pos.direction == 1 and "sell_zone_lower" in bar.index:
+                target = bar["sell_zone_lower"]
+                if not np.isnan(target) and bar["High"] >= target and bars_held >= self.min_bars_for_ma_exit:
+                    exit_price = min(bar["Close"], target)
+                    self._close_position(exit_price, date, "bb_target")
+                    return
+            if pos.direction == -1 and "buy_zone_upper" in bar.index:
+                target = bar["buy_zone_upper"]
+                if not np.isnan(target) and bar["Low"] <= target and bars_held >= self.min_bars_for_ma_exit:
+                    exit_price = max(bar["Close"], target)
+                    self._close_position(exit_price, date, "bb_target")
+                    return
+
+        # Exit 2b: MA cross exit (with configurable minimum bars)
         if "entry_ma20" in bar.index:
             ma20 = bar["entry_ma20"]
             if not np.isnan(ma20):
-                if pos.direction == 1 and bar["Close"] < ma20 and bars_held >= 3:
+                if pos.direction == 1 and bar["Close"] < ma20 and bars_held >= self.min_bars_for_ma_exit:
                     self._close_position(bar["Close"], date, "ma_cross")
                     return
-                if pos.direction == -1 and bar["Close"] > ma20 and bars_held >= 3:
+                if pos.direction == -1 and bar["Close"] > ma20 and bars_held >= self.min_bars_for_ma_exit:
                     self._close_position(bar["Close"], date, "ma_cross")
                     return
 
         # Exit 3: Max holding period
-        if bars_held >= config.MAX_HOLDING_BARS:
+        if bars_held >= self.max_holding_bars:
             self._close_position(bar["Close"], date, "max_hold")
             return
 
