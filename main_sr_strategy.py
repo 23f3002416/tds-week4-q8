@@ -35,7 +35,7 @@ SR_PROXIMITY_PCT = 0.002  # Price within 0.2% of level counts as "at" the level
 SR_BUFFER_BARS = 4        # Bars to wait after a level forms before trading it
 
 # Trade parameters
-TP_PCT = 0.01   # 1% take profit
+TP_PCT = 0.02   # 2% take profit
 SL_PCT = 0.01   # 1% stop loss
 
 # Cost
@@ -451,7 +451,7 @@ def main():
     print()
     print(f"  Take Profit:     {TP_PCT*100}%")
     print(f"  Stop Loss:       {SL_PCT*100}%")
-    print(f"  Risk/Reward:     1:1")
+    print(f"  Risk/Reward:     1:2")
     print(f"  Trading Cost:    {COST_PCT*100}% per side")
     print(f"  S/R Lookback:    {SR_LOOKBACK} bars ({SR_LOOKBACK*15/60:.0f} hours)")
     print(f"  Capital:         ${INITIAL_CAPITAL:,}")
